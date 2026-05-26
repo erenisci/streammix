@@ -1,0 +1,28 @@
+{
+  "name": "@streammix/extension",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "StreamMix browser extension — multi-channel mixer for Twitch and Kick",
+  "scripts": {
+    "dev": "vite build --watch --mode development",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit && svelte-check --tsconfig ./tsconfig.json",
+    "package:firefox": "web-ext build --source-dir dist --artifacts-dir web-ext-artifacts"
+  },
+  "dependencies": {
+    "svelte": "^4.2.19"
+  },
+  "devDependencies": {
+    "@streammix/shared": "file:../shared/ts",
+    "@sveltejs/vite-plugin-svelte": "^3.1.2",
+    "@tsconfig/svelte": "^5.0.4",
+    "@types/chrome": "^0.0.272",
+    "@types/firefox-webext-browser": "^120.0.4",
+    "svelte-check": "^3.8.6",
+    "typescript": "^5.4.0",
+    "vite": "^5.4.10",
+    "web-ext": "^8.3.0"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>StreamMix</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 16px;
+        width: 280px;
+        background: #1f1f23;
+        color: #efeff1;
+        font: 13px/1.4 system-ui, sans-serif;
+      }
+      h1 {
+        font-size: 14px;
+        margin: 0 0 8px;
+      }
+      .hint {
+        color: #b3b3b6;
+        margin-bottom: 12px;
+      }
+      label {
+        display: block;
+        margin-top: 8px;
+      }
+      input {
+        width: 100%;
+        background: #3a3a3d;
+        border: 0;
+        color: inherit;
+        padding: 6px;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>StreamMix</h1>
+    <p class="hint">
+      Open any Twitch or Kick stream — the mixer appears next to the player.
+    </p>
+    <label>
+      Custom relay URL (optional)
+      <input id="relay" type="text" placeholder="wss://relay.streammix.dev" />
+    </label>
+    <script type="module" src="./src/popup/popup.ts"></script>
+  </body>
+</html>

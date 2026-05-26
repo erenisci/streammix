@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "StreamMix",
+  "version": "0.0.1",
+  "description": "Multi-channel audio mixer for Twitch and Kick streams.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://www.twitch.tv/*",
+    "https://www.kick.com/*",
+    "wss://relay.streammix.dev/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.twitch.tv/*",
+        "https://www.kick.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "StreamMix"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "streammix@streammix.dev",
+      "strict_min_version": "115.0"
+    }
+  }
+}
