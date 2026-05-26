@@ -1,0 +1,20 @@
+{
+  "name": "@streammix/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared StreamMix wire format — header codec, message schemas, category presets",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  },
+  "license": "MIT"
+}

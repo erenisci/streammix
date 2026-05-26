@@ -56,7 +56,7 @@ Every binary WebSocket message follows this layout:
 - `SEQ`: 4 bytes big-endian, per-channel monotonically increasing sequence number
 - `TIMESTAMP_MS`: 8 bytes big-endian, publisher capture timestamp
 
-Total header: **20 bytes**.
+Total header: **21 bytes**.
 
 ## Message Types
 
@@ -207,7 +207,7 @@ The connection is closed after an error.
 
 ## Bandwidth Budget
 
-Per track: Opus 48 kbps stereo + 20-byte header @ 50 fps = ~52 kbps + ~96 bps fingerprint = ~52 kbps.
+Per track: Opus 48 kbps stereo + 21-byte header @ 50 fps = ~52 kbps + ~96 bps fingerprint = ~52 kbps.
 
 | Track count | Streamer upload | Viewer download (single viewer) |
 | ----------- | --------------- | ------------------------------- |

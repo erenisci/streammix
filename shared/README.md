@@ -1,14 +1,32 @@
 # shared
 
-Shared schemas and protocol definitions used by every component.
+Wire-format codec used by every StreamMix component. Two parallel implementations of one specification:
 
-Planned contents:
+- `ts/` — TypeScript package, consumed by the browser extension
+- `go/` — Go module, consumed by the relay server
 
-- `protocol.md` — Wire format (canonical) — currently in [../docs/AUDIO_PROTOCOL.md](../docs/AUDIO_PROTOCOL.md)
-- `types.ts` — TypeScript types for the extension
-- `types.go` — Go structs for the relay
-- `header.proto` or similar — generated-binding source (to be decided)
+The canonical spec lives in `docs/AUDIO_PROTOCOL.md`. When the spec changes, both implementations and their tests update in the same commit. Drift between languages is a bug.
 
-## Status
+## TypeScript
 
-> Skeleton. Protocol currently lives in docs/ as the single source of truth.
+```bash
+cd shared/ts
+pnpm install                   # or: npm install
+npx tsc --noEmit               # typecheck
+node --import tsx --test test/*.test.ts   # run tests
+```
+
+The package is published as `@streammix/shared` (private). Other workspaces inside the repo import it via the file path or a workspace protocol once a root `pnpm-workspace.yaml` lands.
+
+## Go
+
+```bash
+cd shared/go
+go test ./...
+```
+
+Importable as `github.com/streammix/streammix/shared/go` (the relay declares a `replace` directive to point at the local path).
+
+## Test Vectors
+
+`testvectors/` holds canonical byte sequences and the JSON forms they decode to. Both languages assert against these so any divergence is caught at test time.
