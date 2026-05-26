@@ -29,21 +29,22 @@ export type StreamerPrefs = Record<string, ChannelSetting>;
 /** Global defaults keyed by *preset* category slug only. */
 export type GlobalPrefs = Record<string, ChannelSetting>;
 
-const storage = chrome.storage?.local ?? (browser as any)?.storage?.local;
-
+// MV3 on Firefox now ships the `chrome.*` namespace alongside `browser.*`, so
+// we only need one path. If chrome.storage is missing (e.g. in tests) we
+// silently no-op.
 async function get<T>(key: string, fallback: T): Promise<T> {
-  if (!storage) return fallback;
+  if (!chrome?.storage?.local) return fallback;
   return new Promise((resolve) => {
-    storage.get(key, (items: Record<string, unknown>) => {
+    chrome.storage.local.get(key, (items: Record<string, unknown>) => {
       resolve((items[key] as T) ?? fallback);
     });
   });
 }
 
 async function set(key: string, value: unknown): Promise<void> {
-  if (!storage) return;
+  if (!chrome?.storage?.local) return;
   return new Promise((resolve) => {
-    storage.set({ [key]: value }, () => resolve());
+    chrome.storage.local.set({ [key]: value }, () => resolve());
   });
 }
 

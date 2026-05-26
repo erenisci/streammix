@@ -3,6 +3,7 @@ package internal
 import (
 	"errors"
 	"sync"
+	"sync/atomic"
 )
 
 // ErrChannelTaken is returned when a publisher tries to claim a channel that
@@ -14,8 +15,10 @@ var ErrSubscriberLimit = errors.New("subscriber limit reached")
 
 // subscriber is a single viewer's outbound queue.
 type subscriber struct {
-	send   chan []byte
-	closed chan struct{}
+	send chan []byte
+	// closed is set true after unsubscribe but BEFORE send is closed; broadcast
+	// loop checks this atomically to avoid sending on a closed channel.
+	closed  atomic.Bool
 	dropped uint64 // packets dropped due to back-pressure
 }
 
@@ -23,12 +26,17 @@ type subscriber struct {
 // The hub owns its own goroutine for the publisher → subscribers broadcast
 // loop, and does NOT inspect packet bytes (the relay must remain opaque).
 type Channel struct {
-	id        string
-	mu        sync.Mutex
-	hasPub    bool
-	subs      map[*subscriber]struct{}
-	maxSubs   int
-	sendBuf   int
+	id      string
+	mu      sync.Mutex
+	hasPub  bool
+	subs    map[*subscriber]struct{}
+	maxSubs int
+	sendBuf int
+
+	// Scratch slice reused by Broadcast to avoid allocating one snapshot per
+	// packet on the hot path (publisher pushes ~50 frames/sec/track). Guarded
+	// by mu and grows as needed.
+	broadcastScratch []*subscriber
 }
 
 // NewChannel constructs an empty channel hub.
@@ -83,8 +91,7 @@ func (c *Channel) Subscribe() (recv <-chan []byte, unsub func(), err error) {
 		return nil, nil, ErrSubscriberLimit
 	}
 	s := &subscriber{
-		send:   make(chan []byte, c.sendBuf),
-		closed: make(chan struct{}),
+		send: make(chan []byte, c.sendBuf),
 	}
 	c.subs[s] = struct{}{}
 	c.mu.Unlock()
@@ -93,6 +100,9 @@ func (c *Channel) Subscribe() (recv <-chan []byte, unsub func(), err error) {
 		c.mu.Lock()
 		if _, ok := c.subs[s]; ok {
 			delete(c.subs, s)
+			// Flag BEFORE close so Broadcast sees closed=true and skips this
+			// subscriber, even if it raced past the snapshot.
+			s.closed.Store(true)
 			close(s.send)
 		}
 		c.mu.Unlock()
@@ -104,29 +114,44 @@ func (c *Channel) Subscribe() (recv <-chan []byte, unsub func(), err error) {
 // the new one queued. The relay never inspects msg — it's opaque.
 func (c *Channel) Broadcast(msg []byte) {
 	c.mu.Lock()
-	subs := make([]*subscriber, 0, len(c.subs))
+	c.broadcastScratch = c.broadcastScratch[:0]
 	for s := range c.subs {
-		subs = append(subs, s)
+		c.broadcastScratch = append(c.broadcastScratch, s)
 	}
+	subs := c.broadcastScratch
 	c.mu.Unlock()
 
 	for _, s := range subs {
+		if s.closed.Load() {
+			continue
+		}
+		c.deliver(s, msg)
+	}
+}
+
+// deliver attempts a non-blocking send to a subscriber. If the unsub goroutine
+// races and closes s.send between the closed-check and the send, we recover
+// from the resulting panic — the subscriber is going away anyway, so the
+// dropped packet is harmless.
+func (c *Channel) deliver(s *subscriber, msg []byte) {
+	defer func() {
+		_ = recover()
+	}()
+	select {
+	case s.send <- msg:
+		// queued
+	default:
+		// Subscriber is behind. Drop the oldest, push the new.
+		select {
+		case <-s.send:
+			s.dropped++
+		default:
+		}
 		select {
 		case s.send <- msg:
-			// queued
 		default:
-			// Subscriber is behind. Drop the oldest, push the new.
-			select {
-			case <-s.send:
-				s.dropped++
-			default:
-			}
-			select {
-			case s.send <- msg:
-			default:
-				// Still couldn't queue — drop entirely.
-				s.dropped++
-			}
+			// Still couldn't queue — drop entirely.
+			s.dropped++
 		}
 	}
 }

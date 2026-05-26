@@ -3,7 +3,6 @@ package wire
 import (
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	"strings"
 	"unicode/utf8"
 )
@@ -270,4 +269,3 @@ func bad(detail string) error {
 	return protoErr(BadPayload, "%s", detail)
 }
 
-var _ = fmt.Sprintf // silence unused-import if helpers shrink

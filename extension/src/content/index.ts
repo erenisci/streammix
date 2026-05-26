@@ -88,7 +88,7 @@ async function mount(): Promise<void> {
       muted,
       broadcastGain,
       onChange: (slug: string, v: number) => {
-        gains[slug] = v;
+        gains = { ...gains, [slug]: v };
         const s = settings.get(slug);
         if (s) {
           s.gain = v;
@@ -98,17 +98,20 @@ async function mount(): Promise<void> {
         mixer.$set({ gains });
       },
       onMuteToggle: (slug: string) => {
-        muted[slug] = !muted[slug];
+        const next = !muted[slug];
+        muted = { ...muted, [slug]: next };
         const s = settings.get(slug);
-        if (s) s.muted = muted[slug]!;
-        setTrackGain(graph, slug, muted[slug] ? 0 : (gains[slug] ?? 0.5));
+        if (s) s.muted = next;
+        setTrackGain(graph, slug, next ? 0 : (gains[slug] ?? 0.5));
         mixer.$set({ muted });
       },
       onSoloToggle: (slug: string) => {
+        const nextMuted: Record<string, boolean> = {};
         for (const t of tracks) {
-          muted[t.slug] = t.slug !== slug;
-          setTrackGain(graph, t.slug, muted[t.slug] ? 0 : (gains[t.slug] ?? 0.5));
+          nextMuted[t.slug] = t.slug !== slug;
+          setTrackGain(graph, t.slug, nextMuted[t.slug] ? 0 : (gains[t.slug] ?? 0.5));
         }
+        muted = nextMuted;
         mixer.$set({ muted });
       },
       onBroadcastChange: (v: number) => {
@@ -117,13 +120,17 @@ async function mount(): Promise<void> {
         mixer.$set({ broadcastGain });
       },
       onReset: () => {
+        const nextGains: Record<string, number> = {};
+        const nextMuted: Record<string, boolean> = {};
         for (const t of tracks) {
           const eff = effectiveSetting(t.slug, t.category, {}, globalPrefs);
-          gains[t.slug] = eff.gain;
-          muted[t.slug] = eff.muted;
+          nextGains[t.slug] = eff.gain;
+          nextMuted[t.slug] = eff.muted;
           settings.set(t.slug, { ...eff });
           setTrackGain(graph, t.slug, eff.muted ? 0 : eff.gain);
         }
+        gains = nextGains;
+        muted = nextMuted;
         mixer.$set({ gains, muted });
       },
       onSaveStreamer: () => {
@@ -135,13 +142,14 @@ async function mount(): Promise<void> {
   });
 
   const applyTrackList = (incoming: TrackInfo[]): void => {
-    // Diff: add new, drop missing.
     const incomingSlugs = new Set(incoming.map((t) => t.slug));
+    const nextGains = { ...gains };
+    const nextMuted = { ...muted };
     for (const t of tracks) {
       if (!incomingSlugs.has(t.slug)) {
         removeTrack(graph, t.slug);
-        delete gains[t.slug];
-        delete muted[t.slug];
+        delete nextGains[t.slug];
+        delete nextMuted[t.slug];
         settings.delete(t.slug);
       }
     }
@@ -149,13 +157,15 @@ async function mount(): Promise<void> {
       if (!settings.has(t.slug)) {
         const eff = effectiveSetting(t.slug, t.category, streamerPrefs, globalPrefs);
         settings.set(t.slug, { ...eff });
-        gains[t.slug] = eff.gain;
-        muted[t.slug] = eff.muted;
+        nextGains[t.slug] = eff.gain;
+        nextMuted[t.slug] = eff.muted;
         addTrack(graph, t.slug);
         setTrackGain(graph, t.slug, eff.muted ? 0 : eff.gain);
       }
     }
     tracks = incoming;
+    gains = nextGains;
+    muted = nextMuted;
     mixer.$set({ tracks, gains, muted });
   };
 
