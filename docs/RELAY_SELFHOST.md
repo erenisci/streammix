@@ -95,13 +95,21 @@ Viewer (in the extension): Settings → "Custom Relay URL" → `wss://your-serve
 
 ## Monitoring
 
-Prometheus metrics on `:9090/metrics`:
+Prometheus-flavoured metrics on `:9090/metrics`:
 
 - `relay_active_channels`
 - `relay_active_subscribers`
 - `relay_packets_relayed_total`
 - `relay_bytes_relayed_total`
 - `relay_publisher_auth_failures_total`
+- `relay_publisher_auth_blocked_total` — count of 429s from the per-IP failed-auth limiter (default 5 failures in 60s triggers a 5-minute cooldown)
+- `relay_uptime_seconds`
+
+## Reverse Proxy Caveats
+
+If you sit the relay behind a reverse proxy (nginx, Caddy, Cloudflare), make sure the proxy is the only thing setting `X-Forwarded-For`. The publisher auth rate limiter trusts the leftmost XFF entry to identify the source IP; if clients can inject that header directly they bypass the limiter.
+
+For the same reason: avoid logging publisher query strings in proxy access logs — the publisher token rides in `?token=...`. Configure your proxy to redact or omit query strings for `/publish` requests.
 
 ## Capacity Planning
 
