@@ -1,0 +1,31 @@
+# StreamMix relay — sample configuration.
+#
+# Generate a token_secret with:   ./relay secret
+# Generate a publisher token with: ./relay token --channel twitch:foo
+
+listen: ":8080"
+
+tls:
+  # Leave both empty for plain HTTP (dev only). In production, point both at
+  # your Let's Encrypt fullchain/privkey files.
+  cert: ""
+  key: ""
+
+limits:
+  max_channels: 1000
+  max_subscribers_per_channel: 5000
+  # Header (21) + payload cap (4 KiB) + slack. Anything larger is rejected
+  # at the WebSocket read boundary — DoS guard.
+  max_frame_bytes: 5120
+  # Per-subscriber outbound queue. A slow subscriber drops old packets when
+  # this fills up; the publisher's broadcast loop is never blocked.
+  subscriber_send_buffer: 64
+
+auth:
+  # REQUIRED. Base64URL-encoded HMAC secret (>= 16 bytes after decode).
+  # Run `./relay secret` to produce one.
+  token_secret: "REPLACE_ME_WITH_OUTPUT_OF_relay_secret"
+
+metrics:
+  enabled: true
+  listen: ":9090"
