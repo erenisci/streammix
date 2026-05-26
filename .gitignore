@@ -1,0 +1,91 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# === Node / Extension ===
+node_modules/
+dist/
+build/
+out/
+*.tsbuildinfo
+.npm/
+.eslintcache
+.pnpm-store/
+coverage/
+
+# Extension build artifacts
+extension/dist/
+extension/web-ext-artifacts/
+*.xpi
+*.crx
+*.pem
+
+# === Go / Relay ===
+relay/bin/
+relay/tmp/
+*.exe
+*.test
+*.out
+go.work
+go.work.sum
+vendor/
+
+# === OBS Plugin (C++) ===
+obs-plugin/build/
+obs-plugin/out/
+obs-plugin/cmake-build-*/
+obs-plugin/.cache/
+*.o
+*.obj
+*.a
+*.lib
+*.dll
+*.so
+*.dylib
+*.pdb
+*.ilk
+*.exp
+CMakeCache.txt
+CMakeFiles/
+CMakeUserPresets.json
+
+# Plan / scratch
+TEMP.md
+scratch/
+.claude/
+
+# Internal docs (not for public repo)
+PROGRESS.md
+docs/decisions/
+docs/ROADMAP.md
+docs/STACK.md
+docs/ARCHITECTURE.md
+NOTES.md
+TODO.md
+*.private.md
+*.internal.md
+
+# Archive — anything deletable at project end or not for public eyes
+archive/
