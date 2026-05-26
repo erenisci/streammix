@@ -14,16 +14,18 @@ import (
 
 // Server bundles the registry, config, and metrics state.
 type Server struct {
-	Cfg      *Config
-	Reg      *Registry
-	Secret   []byte
-	Logger   *slog.Logger
+	Cfg       *Config
+	Reg       *Registry
+	Secret    []byte
+	Logger    *slog.Logger
 	StartedAt time.Time
+	AuthLimit *FailedAuthLimiter
 
 	// Metrics — atomics so the metrics endpoint reads without locking.
 	packetsRelayed atomic.Uint64
 	bytesRelayed   atomic.Uint64
 	authFailures   atomic.Uint64
+	authBlocked    atomic.Uint64
 }
 
 // New constructs a Server. secret is the HMAC token secret bytes.
@@ -34,6 +36,7 @@ func New(cfg *Config, reg *Registry, secret []byte, logger *slog.Logger) *Server
 		Secret:    secret,
 		Logger:    logger,
 		StartedAt: time.Now(),
+		AuthLimit: NewFailedAuthLimiter(),
 	}
 }
 
@@ -63,6 +66,13 @@ func acceptOptions() *websocket.AcceptOptions {
 
 // handlePublish accepts a single authenticated publisher per channel.
 func (s *Server) handlePublish(w http.ResponseWriter, r *http.Request) {
+	ip := ClientIP(r)
+	if !s.AuthLimit.Allowed(ip) {
+		s.authBlocked.Add(1)
+		http.Error(w, "too many failed attempts", http.StatusTooManyRequests)
+		return
+	}
+
 	channelID := r.URL.Query().Get("channel")
 	token := r.URL.Query().Get("token")
 
@@ -72,10 +82,12 @@ func (s *Server) handlePublish(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := VerifyToken(s.Secret, channelID, token); err != nil {
 		s.authFailures.Add(1)
+		s.AuthLimit.RecordFailure(ip)
 		// Generic 401 — don't leak which step failed.
 		http.Error(w, "unauthorised", http.StatusUnauthorized)
 		return
 	}
+	s.AuthLimit.RecordSuccess(ip)
 
 	ch, err := s.Reg.GetOrCreate(channelID)
 	if err != nil {
@@ -167,7 +179,10 @@ func (s *Server) handleSubscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Subscribers don't send us anything we read; we just write.
+	// Subscribers never send anything meaningful; cap inbound to 256 bytes so
+	// a malicious client cannot pong-flood or buffer megabytes before close.
+	conn.SetReadLimit(256)
+
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
@@ -223,6 +238,7 @@ func (s *Server) WriteMetrics(w http.ResponseWriter) {
 	writeMetric("relay_packets_relayed_total", s.packetsRelayed.Load())
 	writeMetric("relay_bytes_relayed_total", s.bytesRelayed.Load())
 	writeMetric("relay_publisher_auth_failures_total", s.authFailures.Load())
+	writeMetric("relay_publisher_auth_blocked_total", s.authBlocked.Load())
 	writeMetric("relay_uptime_seconds", uint64(time.Since(s.StartedAt).Seconds()))
 }
 
