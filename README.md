@@ -1,12 +1,12 @@
 # StreamMix
 
-> An open-source system that lets Twitch and Kick viewers independently control each audio source in a stream — **mic, game, music, notifications, browser, voice chat** — turning down what they don't want, keeping what they do, and optionally layering their own music on top.
+> An open-source system that lets Twitch and Kick viewers independently control each audio source in a stream — **mic, game, music, notifications, browser, voice chat** — turning down what they don't want, keeping what they do.
 
 ---
 
 ## The Problem
 
-In a livestream every sound comes mixed into a single audio track. If you don't like the streamer's music, your only option is muting the whole tab and opening Spotify separately — but then you lose the mic and game audio too. The same applies to notification sounds, browser audio, voice chat, etc.
+In a livestream every sound comes mixed into a single audio track. If you don't like one of the components — say the streamer's background music or notification sounds — your only option is muting the whole tab, which also takes out the mic and game audio. There's no granular control on the viewer side.
 
 ## The Solution
 
@@ -26,8 +26,7 @@ For viewers **without** the extension nothing changes — the broadcast plays as
    └─ OBS Plugin ──► WebSocket ──► fan-out ──► Extension ──► Web Audio:
         (N named                                              ├─ Demux tracks
          channels,                                             ├─ Σ cancel
-         multiplexed)                                          ├─ Per-channel mixer
-                                                               └─ Your own Spotify
+         multiplexed)                                          └─ Per-channel mixer
 ```
 
 ## Components

@@ -28,7 +28,6 @@ When released:
 │  🌐 Browser         ▓▓▓░░░░░░░  30  │
 ├──────────────────────────────────────┤
 │  📺 Broadcast (residual) ▓▓░░░░  20 │
-│  🎧 Your Music     ▓▓▓▓▓░░░░░  50  │
 ├──────────────────────────────────────┤
 │  [Reset]   [Save for this streamer]  │
 └──────────────────────────────────────┘
@@ -36,11 +35,10 @@ When released:
 
 ### Slider Logic
 
-| Slider                           | What it controls                                                                                                          |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| **Microphone, Game, Music, ...** | Each named channel the streamer opens (up to 8)                                                                           |
-| **📺 Broadcast (residual)**      | Whatever remains in the main broadcast after cancellation — keep this low; setting it to 0 silences unknown leftovers too |
-| **🎧 Your Music**                | Spotify embed (optional, below)                                                                                           |
+| Slider | What it controls |
+|---|---|
+| **Microphone, Game, Music, ...** | Each named channel the streamer opens (up to 8) |
+| **📺 Broadcast (residual)** | Whatever remains in the main broadcast after cancellation — keep this low; setting it to 0 silences unknown leftovers too |
 
 ### Mute / Solo
 
@@ -66,14 +64,9 @@ Example scenario:
 
 The channel list comes back empty. You just get the classic single mute button — same as before extension installation.
 
-## Adding Your Own Music
+## Want to Listen to Your Own Music?
 
-1. In the mixer panel, click "Connect Spotify" under the **🎧 Your Music** section.
-2. Sign in with your Spotify account (Premium required — Spotify Web Playback SDK restriction).
-3. Search for a playlist or track and hit play.
-4. Use the "Your Music" slider to adjust volume.
-
-> YouTube Music, Apple Music, etc. are planned for later.
+StreamMix doesn't play music for you — use your favorite music app (Spotify, YouTube Music, Apple Music, etc.) alongside the stream. Turn the streamer's "Music" channel to 0 here, raise your music app's volume to taste. Future versions may integrate music apps directly; for now they live side by side.
 
 ## Fine Tuning
 
@@ -90,7 +83,6 @@ The channel list comes back empty. You just get the classic single mute button �
 ## Privacy
 
 - No viewer data is sent to a server.
-- Your Spotify session lives in your browser only.
 - All settings are in `chrome.storage.local` — fully local.
 
 ## Troubleshooting
