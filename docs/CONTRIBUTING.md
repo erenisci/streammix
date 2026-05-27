@@ -8,8 +8,9 @@ StreamMix is open source and accepts contributions. This document summarizes the
 | ------------- | ----------------------------------------------------------- |
 | `relay/`      | Go 1.22+                                                    |
 | `extension/`  | Node.js 20+, pnpm (or npm)                                  |
-| `obs-plugin/` | CMake 3.28+, C++20 compiler, OBS Studio dev kit (for the libobs target) |
-| `shared/`     | Node.js 20+ for `shared/ts/`, Go 1.22+ for `shared/go/`     |
+| `publisher/`  | Windows 10+, CMake 3.28+, MSVC C++20, vcpkg (opus + libwebsockets) |
+| `obs-plugin/` | CMake 3.28+, C++20 compiler, OBS Studio dev kit (libobs target — v0.2) |
+| `shared/`     | Node.js 20+ for `shared/ts/`, Go 1.22+ for `shared/go/`, C++20 + CMake for `shared/cpp/` |
 
 ## First-time Setup
 
@@ -39,11 +40,26 @@ cd shared/ts && node --import tsx --test test/*.test.ts
 cd shared/go && go test ./...
 cd relay && go test ./...
 
-# OBS plugin proto codec (host-only build; no OBS dev kit needed)
-cd obs-plugin && cmake -S . -B build -DSTREAMMIX_BUILD_PLUGIN=OFF
+# Shared codec (C++) — built standalone, no OBS dev kit needed
+cd shared/cpp && cmake -S . -B build
 cmake --build build --config Release
 ctest --test-dir build -C Release --output-on-failure
 ```
+
+## Building the publisher (Windows)
+
+The standalone publisher captures per-process audio via WASAPI and publishes to the relay.
+
+```powershell
+# One-time: install vcpkg deps
+vcpkg install opus:x64-windows libwebsockets:x64-windows
+
+cd publisher
+cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+cmake --build build --config Release
+```
+
+Binary lands at `publisher/build/Release/streammix_publisher.exe`. See [`publisher/README.md`](../publisher/README.md) for usage.
 
 ## Local End-to-End Smoke Test
 

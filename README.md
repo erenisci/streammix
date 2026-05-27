@@ -33,7 +33,8 @@ For viewers **without** the extension nothing changes — the broadcast plays as
 
 | Folder                     | Purpose                                                              | Language   |
 | -------------------------- | -------------------------------------------------------------------- | ---------- |
-| [obs-plugin/](obs-plugin/) | OBS Studio plugin — publishes named audio channels to a side-channel | C++        |
+| [publisher/](publisher/)   | Standalone Windows CLI — captures per-process audio (WASAPI) and publishes to the relay | C++        |
+| [obs-plugin/](obs-plugin/) | OBS Studio plugin — packaged streamer experience (v0.2)              | C++        |
 | [relay/](relay/)           | WebSocket fan-out server — bridges streamer to viewers               | Go         |
 | [extension/](extension/)   | Chromium + Firefox extension — mixer UI + cancellation               | TypeScript |
 | [shared/](shared/)         | Shared audio packet format and protocol definitions                  | -          |
