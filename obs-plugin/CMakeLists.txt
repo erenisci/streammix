@@ -3,46 +3,26 @@ cmake_minimum_required(VERSION 3.28...3.30)
 project(streammix VERSION 0.0.1 LANGUAGES CXX)
 
 # ----------------------------------------------------------------------------
-# OBS plugin baseline. We expect either:
-#   - libobs dev kit installed and findable via find_package(libobs)
-#   - OR OBS_BUILD_DIR set to a local checkout of obsproject/obs-studio
-#     (CI typically takes that path)
+# StreamMix OBS plugin. Two build modes:
 #
-# Real plugin builds need additional setup:
-#   * Qt6 (Widgets, Core) for the dock UI
-#   * libopus for audio encode
-#   * libwebsockets (or another WS client) for the publisher connection
+#   STREAMMIX_BUILD_PLUGIN=OFF  (default)
+#     Builds just the shared C++ codec for unit testing; no OBS dev kit needed.
+#     Use this for CI and contributor onboarding without libobs / Qt.
 #
-# This CMakeLists is the scaffold — once an OBS dev kit is on PATH the
-# remaining find_package calls are uncommented and the plugin compiles.
+#   STREAMMIX_BUILD_PLUGIN=ON
+#     Real libobs module. Requires the OBS dev kit (find_package(libobs)) and
+#     Qt6 (find_package(Qt6 ...)).
 # ----------------------------------------------------------------------------
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-option(STREAMMIX_BUILD_PLUGIN "Build the libobs plugin (requires libobs dev kit)" OFF)
+# Pull in the shared codec library. Same target is used by publisher/.
+add_subdirectory(${CMAKE_SOURCE_DIR}/../shared/cpp shared_cpp)
 
-# Always build the protocol helper static library so the host (or unit tests)
-# can use it independently of OBS.
-add_library(streammix_proto STATIC
-  src/proto/header.cpp
-  src/proto/header.h
-  src/proto/categories.cpp
-  src/proto/categories.h
-)
+option(STREAMMIX_BUILD_PLUGIN "Build the libobs plugin (requires OBS dev kit)" OFF)
 
-target_include_directories(streammix_proto PUBLIC src)
-
-if(MSVC)
-  target_compile_options(streammix_proto PRIVATE /W4 /WX /permissive-)
-else()
-  target_compile_options(streammix_proto PRIVATE -Wall -Wextra -Wpedantic -Werror)
-endif()
-
-# ----------------------------------------------------------------------------
-# Plugin target (gated by option until dev kit is present).
-# ----------------------------------------------------------------------------
 if(STREAMMIX_BUILD_PLUGIN)
   find_package(libobs REQUIRED)
   find_package(Qt6 COMPONENTS Widgets Core REQUIRED)
@@ -66,13 +46,3 @@ if(STREAMMIX_BUILD_PLUGIN)
   set_target_properties(streammix PROPERTIES PREFIX "")
   install(TARGETS streammix DESTINATION obs-plugins/64bit)
 endif()
-
-# ----------------------------------------------------------------------------
-# Tests (host-side, no OBS needed).
-# ----------------------------------------------------------------------------
-enable_testing()
-add_executable(streammix_proto_tests
-  test/proto_tests.cpp
-)
-target_link_libraries(streammix_proto_tests PRIVATE streammix_proto)
-add_test(NAME proto_tests COMMAND streammix_proto_tests)
