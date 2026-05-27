@@ -4,12 +4,12 @@ StreamMix is open source and accepts contributions. This document summarizes the
 
 ## Development Environment
 
-| Component     | Required tools                                              |
-| ------------- | ----------------------------------------------------------- |
-| `relay/`      | Go 1.22+                                                    |
-| `extension/`  | Node.js 20+, pnpm (or npm)                                  |
-| `publisher/`  | Windows 10+, CMake 3.28+, MSVC C++20, vcpkg (opus + libwebsockets) |
-| `obs-plugin/` | CMake 3.28+, C++20 compiler, OBS Studio dev kit (libobs target — v0.2) |
+| Component     | Required tools                                                                           |
+| ------------- | ---------------------------------------------------------------------------------------- |
+| `relay/`      | Go 1.22+                                                                                 |
+| `extension/`  | Node.js 20+, pnpm (or npm)                                                               |
+| `publisher/`  | Windows 10+, CMake 3.28+, MSVC C++20, vcpkg (opus + libwebsockets)                       |
+| `obs-plugin/` | CMake 3.28+, C++20 compiler, OBS Studio dev kit (libobs target — v0.2)                   |
 | `shared/`     | Node.js 20+ for `shared/ts/`, Go 1.22+ for `shared/go/`, C++20 + CMake for `shared/cpp/` |
 
 ## First-time Setup
