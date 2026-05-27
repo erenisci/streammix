@@ -59,4 +59,4 @@ For viewers **without** the extension nothing changes — the broadcast plays as
 
 ## License
 
-MIT
+[MIT](LICENSE) — © 2026 Eren İşci
