@@ -6,12 +6,16 @@
   export let gains: Record<string, number> = {};
   export let muted: Record<string, boolean> = {};
   export let broadcastGain: number = 0.2;
+  export let offsetMs: number = 0;
   export let onChange: (slug: string, value: number) => void = () => {};
   export let onMuteToggle: (slug: string) => void = () => {};
   export let onSoloToggle: (slug: string) => void = () => {};
   export let onBroadcastChange: (value: number) => void = () => {};
+  export let onOffsetChange: (ms: number) => void = () => {};
   export let onReset: () => void = () => {};
   export let onSaveStreamer: () => void = () => {};
+
+  let showSettings = false;
 
   function handleSliderInput(slug: string, e: Event): void {
     const target = e.currentTarget as HTMLInputElement;
@@ -22,12 +26,17 @@
     const target = e.currentTarget as HTMLInputElement;
     onBroadcastChange(Number(target.value) / 100);
   }
+
+  function handleOffsetInput(e: Event): void {
+    const target = e.currentTarget as HTMLInputElement;
+    onOffsetChange(Number(target.value));
+  }
 </script>
 
 <div class="mixer">
   <header>
     <span>🎚 Mixer</span>
-    <button class="icon" title="Settings">⚙</button>
+    <button class="icon" title="Settings" on:click={() => (showSettings = !showSettings)}>⚙</button>
   </header>
 
   {#each tracks as t (t.id)}
@@ -66,6 +75,26 @@
     />
     <span class="value">{Math.round(broadcastGain * 100)}</span>
   </div>
+
+  {#if showSettings}
+    <hr />
+    <div class="settings">
+      <label class="row">
+        <span class="track-icon">⏱</span>
+        <span class="label">Sync offset (ms)</span>
+        <input
+          type="range"
+          min="0"
+          max="2000"
+          step="10"
+          value={offsetMs}
+          on:input={handleOffsetInput}
+        />
+        <span class="value">{offsetMs}</span>
+      </label>
+      <p class="hint">Side-channels are delayed by this much before cancellation. Raise it if the streamer's audio still leaks through.</p>
+    </div>
+  {/if}
 
   <footer>
     <button on:click={onReset}>Reset</button>
@@ -123,6 +152,14 @@
     text-align: right;
     font-variant-numeric: tabular-nums;
     color: #b3b3b6;
+  }
+  .settings {
+    padding: 4px 0;
+  }
+  .hint {
+    margin: 4px 0 0;
+    color: #8b8b8e;
+    font-size: 11px;
   }
   footer button {
     background: #3a3a3d;
