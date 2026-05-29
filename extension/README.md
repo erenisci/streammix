@@ -28,7 +28,19 @@ pnpm package:firefox
 
 ## Status
 
-Phase 3 skeleton. Renders the mixer panel on Twitch and Kick channel pages, subscribes to the relay, applies viewer preferences (global + per-streamer) to sliders. Cancellation summing and Opus decoding are deferred to Phase 5.
+Code-complete for the v0.1 viewer experience. Each incoming AUDIO_OPUS frame is decoded via WebCodecs `AudioDecoder`, scheduled onto a per-track playback chain, and routed into both the user-mix gain and an inverted-and-delayed cancellation lane that subtracts the side-channel out of the broadcast. Moving a slider down audibly silences the corresponding streamer-side source.
+
+Settings panel (gear icon) exposes a manual sync-offset slider (0–2000 ms). Automatic fingerprint-based offset is a Phase 5b follow-up.
+
+Build:
+
+```bash
+cd extension
+npm install
+npm run build       # vite build → extension/dist
+```
+
+Load `dist/` as an unpacked extension in Chrome (`chrome://extensions` → Developer mode → Load unpacked) or Firefox (`about:debugging` → Load Temporary Add-on).
 
 ## Usage
 

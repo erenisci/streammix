@@ -51,7 +51,7 @@ For viewers **without** the extension nothing changes — the broadcast plays as
 
 ## Status
 
-> Early development. No installable release yet.
+> Pre-release. The streamer-side publisher (Windows), the relay server, the wire-format codec, and the browser extension (including Opus decode + active cancellation) are all code-complete. End-to-end live testing on real streams and a hosted relay deploy are the next steps before v0.1.
 
 ## Supported Platforms
 

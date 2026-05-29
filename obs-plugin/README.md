@@ -1,27 +1,35 @@
 # obs-plugin
 
-OBS Studio plugin — publishes the streamer's named audio channels to a side-channel through the relay.
+OBS Studio plugin — packages the streamer experience inside OBS. **Deferred to v0.2.** For the v0.1 MVP the standalone Windows CLI ([../publisher/](../publisher/)) covers the streamer side.
 
 **Language:** C++20
 **Build:** CMake 3.28+
 **Dependencies:**
-- `streammix_proto` (built in this directory; no external deps)
+- The shared codec ([../shared/cpp/](../shared/cpp/)) — no external deps
 - For the libobs module target: OBS Studio dev kit + Qt6 + libopus + libwebsockets
 
 ## Build (host-side only, no OBS)
 
-The wire-format codec and the channel model build standalone for unit testing:
+The wire-format codec used by this directory lives in `shared/cpp/`; build and test it there:
+
+```bash
+cd ../shared/cpp
+cmake -S . -B build
+cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
+```
+
+The OBS-plugin scaffold (dock + channel model) also builds host-only:
 
 ```bash
 cd obs-plugin
 cmake -S . -B build -DSTREAMMIX_BUILD_PLUGIN=OFF
 cmake --build build --config Release
-ctest --test-dir build -C Release --output-on-failure
 ```
 
 ## Build (full plugin)
 
-Requires the OBS dev kit on the local machine (see [the OBS plugin template](https://github.com/obsproject/obs-plugintemplate) for platform-specific setup) plus Qt6.
+Requires the OBS dev kit and Qt6.
 
 ```bash
 cmake -S . -B build -DSTREAMMIX_BUILD_PLUGIN=ON
@@ -34,16 +42,16 @@ Install to OBS's plugin directory; see [../docs/STREAMER_SETUP.md](../docs/STREA
 
 | Path | Purpose |
 |---|---|
-| `src/proto/` | Wire-format codec (C++ mirror of `shared/ts` and `shared/go`) |
 | `src/plugin/` | libobs module entry point + Qt dock UI |
-| `test/` | Host-side unit tests for the proto codec |
+
+The wire-format codec used here is reused from [../shared/cpp/](../shared/cpp/) (`streammix_proto` static library).
 
 Protocol reference: [../docs/AUDIO_PROTOCOL.md](../docs/AUDIO_PROTOCOL.md)
 Streamer setup: [../docs/STREAMER_SETUP.md](../docs/STREAMER_SETUP.md)
 
 ## Status
 
-Phase 4 skeleton:
-- ✅ Proto codec + 12 host-side unit tests passing (built with MSVC C++20)
+v0.2 target:
 - ✅ Channel model (Qt) + dock registration scaffold
-- ⏳ Audio capture from OBS audio sources, Opus encoding, WebSocket publisher — wired into CMake, full implementation deferred to Phase 5
+- ✅ Reuses the proto codec from `shared/cpp/` (12 host-side tests passing)
+- ⏳ Audio capture from OBS audio sources, Opus encoding, WebSocket publisher — to be ported from `publisher/src/`
