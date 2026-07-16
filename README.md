@@ -16,7 +16,7 @@ A three-part system:
 
 - **Publisher** — Runs on the streamer's machine. Captures up to 8 named sources (Mic, Game, Music, Notifications, ...) straight from the processes that produce them and publishes each as a clean Opus side-channel. The main broadcast is untouched, and no OBS reconfiguration is needed.
 - **Relay** — A stateless WebSocket fan-out: one publisher in, N viewers out, bytes forwarded opaquely.
-- **Browser extension** — Runs in the viewer's browser. Uses the side-channels to **actively cancel** the corresponding sounds out of the main broadcast (phase cancellation), then exposes a separate slider per channel. Preferences are remembered both globally (by category) and per-streamer.
+- **Browser extension** — Runs in the viewer's browser. Uses the side-channels to **actively cancel** the corresponding sounds out of the main broadcast (phase cancellation), then exposes a separate slider per channel. Preferences are remembered both globally (by category) and per-streamer. *(Cancellation is the experimental part — see Status.)*
 
 For viewers **without** the extension nothing changes — the broadcast plays as a single mixed stream, the way it always did.
 
@@ -56,13 +56,14 @@ For viewers **without** the extension nothing changes — the broadcast plays as
 
 ## Status
 
-**Pre-release — not yet usable without building it yourself.** The wire-format codec, the relay, the Windows publisher, and the extension (Opus decode + active cancellation + mixer UI) are all code-complete, and the relay deploy stack is verified end to end against a live host. What is still missing for v0.1:
+**Pre-release, and the core feature is unproven.** Everything is built — wire-format codec, relay, Windows publisher, extension with Opus decode, cancellation graph and mixer UI — the pieces talk to each other, the relay is deployed and verified against a live host, and CI is green. What has *not* happened is anyone hearing a slider actually silence a streamer's music on a real stream.
 
-- **No official hosted relay.** You must run your own ([deploy/](deploy/README.md)); the publisher and every viewer must point at the same URL.
-- **No released binaries.** No signed publisher installer, no Chrome Web Store / AMO listing — build from source.
-- **End-to-end testing on real streams is not finished.**
-- **Sync is manual.** Fingerprint-based auto-sync isn't implemented; viewers nudge an offset slider.
-- **Publisher is Windows-only** and has no auto-reconnect.
+Be clear-eyed about why that matters:
+
+- **Cancellation is experimental.** Subtracting the side-channel from the broadcast only works if the two are aligned to within tens of microseconds. Today the viewer sets that alignment with a slider, by hand, against a broadcast running 3–30 seconds behind. Automatic sync is designed but not built, so expect cancellation to be poor or absent until it is. The per-track sliders work as a plain mixer regardless.
+- **No official hosted relay.** Run your own ([deploy/](deploy/README.md)); publisher and viewers must point at the same URL.
+- **No released binaries.** No signed installer, no Chrome Web Store / AMO listing — build from source.
+- **Publisher is Windows-only** (WASAPI process loopback).
 
 The OBS plugin ([obs-plugin/](obs-plugin/)) is deferred to v0.2 — the publisher CLI covers the MVP streamer path.
 

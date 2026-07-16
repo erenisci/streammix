@@ -153,6 +153,8 @@ Sent once per second, separately per track. The extension keeps an independent f
 
 Fingerprints from every track are correlated with the mixed-audio fingerprint of the main broadcast to derive a shared delay. A single track's fingerprint can be enough (the loudest one usually gives the best result).
 
+> **Not implemented, and not sufficient on its own.** Correlating hashes emitted once per second localises the delay to roughly that period — about 1 s. Phase cancellation needs alignment within tens of microseconds (a couple of samples at 48 kHz): subtracting a copy misaligned by `Δt` leaves `2·|sin(π·f·Δt)|` of a tone at frequency `f`, and past `Δt = 1/(6f)` the copy stops cancelling and starts reinforcing. Fingerprints are therefore a **coarse** stage whose job is to narrow the search window; a sample-accurate refinement (waveform cross-correlation inside that window) has to sit on top of them. Anything implementing this message should treat it as step one of two.
+
 ## TRACK_META Payload (optional)
 
 Shape varies by track type. Example (music category):
@@ -180,6 +182,10 @@ The subscriber declares which tracks it actually wants. The plugin only publishe
 Empty `[]` = control messages only (temporary full mute).
 
 > Note: There may be many subscribers; the union is taken. The publisher sends every track requested by at least one subscriber. With a single viewer you get full optimization; with many viewers in practice every track ends up requested.
+
+> **Reserved, not implemented.** Nothing sends this message and nothing would receive it: the relay caps subscriber reads at 256 bytes and discards them, so there is no subscriber → publisher path today. Sending it is a harmless no-op.
+>
+> The union semantics above also mean this can only ever save the *streamer's upload*, and only in the rare case where every viewer has disabled the same track — it cannot reduce what a given viewer downloads, since the single fan-out carries the union either way. Saving viewer bandwidth would require the relay to read the `TRACK` byte and filter per subscriber, which conflicts with its byte-for-byte opacity. That trade-off is unresolved, so treat this message as a placeholder rather than a contract.
 
 ## STATS Payload
 
