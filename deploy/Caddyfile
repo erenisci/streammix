@@ -1,0 +1,22 @@
+# Automatic HTTPS via Let's Encrypt. RELAY_DOMAIN is injected from the
+# environment (see docker-compose.yml). WebSocket upgrades pass straight through
+# reverse_proxy — no extra config needed.
+{$RELAY_DOMAIN} {
+	reverse_proxy relay:8080 {
+		# SECURITY: the relay's publisher-auth rate limiter identifies callers by
+		# the leftmost X-Forwarded-For entry. Caddy APPENDS to a client-supplied
+		# XFF by default, which would let anyone spoof the leftmost value and
+		# bypass the limiter. Overwrite it with the real peer address instead.
+		header_up X-Forwarded-For {remote_host}
+	}
+
+	# The publisher token rides in ?token=... — keep it out of access logs.
+	log {
+		output stderr
+		format filter {
+			request>uri query {
+				replace token REDACTED
+			}
+		}
+	}
+}

@@ -13,6 +13,27 @@ onward.
   running a per-language matrix on every push and pull request: `shared/ts`
   (typecheck + tests), `shared/go` (vet + tests), `shared/cpp` (build + ctest),
   `relay` (vet + tests), and `extension` (typecheck + build).
+- **`deploy/`** — turnkey always-on relay deploy: Docker Compose stack running the
+  relay behind Caddy with automatic Let's Encrypt TLS, so the public endpoint is
+  `wss://<domain>` as the extension requires. Runs free on an Oracle Cloud Always
+  Free VM plus a DuckDNS subdomain. The HMAC secret is mounted at runtime and
+  gitignored, never baked into the image.
+
+### Fixed
+
+- **Publisher-auth rate limiter could be bypassed behind a reverse proxy.** The
+  relay identifies callers by the leftmost `X-Forwarded-For` entry, but Caddy
+  appends to a client-supplied XFF by default, leaving that entry attacker-
+  controlled. `deploy/Caddyfile` now overwrites XFF with the real peer address,
+  and `docs/RELAY_SELFHOST.md` documents the nginx equivalent.
+- **`--ttl 365d` in every token example was a parse error.** `--ttl` takes a Go
+  duration whose largest unit is the hour; the docs now use `8760h`.
+- **`docs/RELAY_SELFHOST.md` quick start could not work.** It configured the relay
+  through `RELAY_*` environment variables, which it has never supported (YAML
+  only), and pulled a container image that does not exist. It now points at
+  `deploy/`.
+- **`docs/RELAY_SELFHOST.md` config sample used `max_packet_bytes`**; the real
+  field is `max_frame_bytes`.
 
 ### Notes
 

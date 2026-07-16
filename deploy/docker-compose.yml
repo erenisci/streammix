@@ -1,0 +1,44 @@
+# StreamMix relay — always-on deploy (relay + Caddy for automatic TLS).
+#
+# Caddy terminates HTTPS and reverse-proxies to the relay over plain HTTP on the
+# internal network, so the relay itself never needs a certificate. The public
+# endpoint is wss://${RELAY_DOMAIN}, which is what the extension and publisher use.
+#
+# First run: see README.md. Note that `config.yaml` must exist before any
+# `docker compose run/up` — the bind mount below would otherwise be created as an
+# empty directory. Generate the secret with plain `docker run`, not compose.
+
+services:
+  relay:
+    build:
+      context: .. # repo root — Dockerfile copies both relay/ and shared/go
+      dockerfile: relay/Dockerfile
+    image: streammix-relay
+    command: ["--config", "/etc/streammix/config.yaml"]
+    volumes:
+      - ./config.yaml:/etc/streammix/config.yaml:ro
+    expose:
+      - "8080"
+    ports:
+      # Metrics bound to loopback only — readable from the VM, never the internet.
+      - "127.0.0.1:9090:9090"
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    depends_on:
+      - relay
+    environment:
+      RELAY_DOMAIN: ${RELAY_DOMAIN:?set RELAY_DOMAIN in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

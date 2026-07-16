@@ -24,6 +24,10 @@ yarn-error.log*
 *.pem
 *.key
 
+# Deploy — live config carries the HMAC secret; never commit it
+deploy/config.yaml
+deploy/secret.txt
+
 # === Node / Extension ===
 node_modules/
 dist/

@@ -18,8 +18,10 @@ cp config.example.yaml config.yaml         # then paste the secret into auth.tok
 Mint a publisher token for a channel:
 
 ```bash
-./relay token --channel twitch:streamer_name --ttl 365d --config config.yaml
+./relay token --channel twitch:streamer_name --ttl 8760h --config config.yaml
 ```
+
+`--ttl` is a Go duration — the largest unit is the hour, so `8760h` is one year.
 
 ## Endpoints
 

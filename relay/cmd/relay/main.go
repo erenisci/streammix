@@ -2,7 +2,7 @@
 //
 // Usage:
 //   relay --config config.yaml
-//   relay token --channel twitch:foo --ttl 365d
+//   relay token --channel twitch:foo --ttl 8760h
 //   relay secret               # print a new random HMAC secret to stdout
 package main
 
