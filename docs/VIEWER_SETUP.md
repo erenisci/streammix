@@ -80,7 +80,9 @@ StreamMix doesn't play music for you — use your favorite music app (Spotify, Y
 2. Drag the **Manual Offset** slider
 3. Stop at the cleanest point
 
-The stream reaches you later than the side-channel does, and that delay is what the offset compensates for. It is **manual for now** — automatic fingerprint-based sync is not implemented yet, so expect to nudge this slider once per streamer.
+The stream reaches you **seconds** later than the side-channel does, and that delay is what the offset compensates for — expect a large value (roughly 3–5s on Twitch low latency, 10–20s otherwise), not a small nudge.
+
+> **Be realistic about this slider.** Cancellation needs the two signals aligned to within microseconds, and the slider steps in 10ms. Finding a usable point by hand ranges from hard to impossible; automatic sync is designed but not built yet. Until it is, treat cancellation as experimental — per-track sliders and mute still work as a normal mixer over whatever the streamer publishes.
 
 > **Not yet available:** marking a track "Permanently Off" so it is never pulled from the relay (a bandwidth saving) is designed but not implemented — turning a slider to 0 still downloads the track.
 

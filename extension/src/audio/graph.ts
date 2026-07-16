@@ -1,30 +1,31 @@
 /**
  * Web Audio routing graph for the mixer + active cancellation.
  *
- * Pipeline (per track t):
+ * Pipeline:
  *
- *   side-channel(t) ─► entry(t) ─┬─► delay(common) ─► invert(-1) ─┐
- *                                 │                                 │
- *                                 └─► userGain(t) ─► master         │
- *                                                                   │
- *   player <video> ─► broadcastTap ─► broadcastGain ─► master       ▼
- *                                                       ▲      cancellationSum
- *                                                       │           │
- *                                                       └───────────┘
- *                                                       (master sums
- *                                                       broadcast +
- *                                                       inverted side-channel
- *                                                       → effective subtract)
- *                                                              │
- *                                                              ▼
- *                                                       AudioDestination
+ *   side-channel(t) ─► entry(t) ─┬─► userGain(t) ──────────────► master
+ *                                 │                                ▲
+ *                                 └─► cancellationSum              │
+ *                                            │                     │
+ *                                            ▼                     │
+ *                                     sharedDelay ─► invert(-1) ───┤
+ *                                                                  │
+ *   player <video> ─► broadcastTap ─► broadcastGain ───────────────┘
+ *                                                                  │
+ *                                                                  ▼
+ *                                                          AudioDestination
  *
- * cancellationSum collects inverted-and-delayed copies of every track. master
- * sums it with broadcastGain — Web Audio's destination sees broadcast minus
- * the side-channel content, i.e. cancellation.
+ * master sums the broadcast with an inverted copy of the side-channels — an
+ * effective subtraction, i.e. cancellation.
  *
- * Per-track mute zeroes only the userGain copy; cancellation continues, so the
- * track's audio fully disappears.
+ * All tracks share ONE delay: they were mixed into the same broadcast, so they
+ * share its latency (see docs/AUDIO_PROTOCOL.md). Summing first and delaying
+ * once is equivalent to delaying each track (the operations are linear) and
+ * costs one delay buffer instead of one per track — which matters because that
+ * buffer must span whole seconds of broadcast latency.
+ *
+ * Per-track mute zeroes only the userGain copy; the cancellation tap reads the
+ * entry node directly, so cancellation continues and the track fully disappears.
  */
 
 export interface MixerGraph {
@@ -32,6 +33,8 @@ export interface MixerGraph {
   master: GainNode;
   broadcastGain: GainNode;
   cancellationSum: GainNode;
+  sharedDelay: DelayNode;
+  inverter: GainNode;
   source: MediaElementAudioSourceNode;
   offsetMs: number;
   tracks: Map<string, TrackNodes>;
@@ -40,11 +43,22 @@ export interface MixerGraph {
 interface TrackNodes {
   entry: GainNode;
   userGain: GainNode;
-  delay: DelayNode;
-  inverter: GainNode;
 }
 
-const MAX_OFFSET_SECONDS = 2;
+/**
+ * How far the side-channels can be delayed to meet the broadcast.
+ *
+ * The side-channel reaches the viewer in ~100ms (publisher → relay → browser),
+ * while the broadcast crawls through ingest, transcode, CDN and the player's own
+ * buffer: roughly 3–5s on Twitch low-latency and 10–30s otherwise. Cancellation
+ * therefore needs to hold the side-channel back by the WHOLE broadcast latency,
+ * so this ceiling has to clear a normal stream — at 2s it could not, and no
+ * slider position would line the two up.
+ *
+ * Cost: one delay buffer of maxDelayTime × 48kHz × 2ch × 4B ≈ 11.5 MB at 30s.
+ * Affordable only because the delay is shared across tracks rather than per-track.
+ */
+const MAX_OFFSET_SECONDS = 30;
 
 export function buildGraph(video: HTMLVideoElement): MixerGraph {
   const ctx = new AudioContext({ latencyHint: "interactive" });
@@ -54,14 +68,22 @@ export function buildGraph(video: HTMLVideoElement): MixerGraph {
   broadcastGain.gain.value = 1;
 
   const cancellationSum = ctx.createGain();
-  cancellationSum.gain.value = 1; // inverters carry the sign
+  cancellationSum.gain.value = 1; // inverter carries the sign
+
+  const sharedDelay = ctx.createDelay(MAX_OFFSET_SECONDS);
+  sharedDelay.delayTime.value = 0;
+
+  const inverter = ctx.createGain();
+  inverter.gain.value = -1;
 
   const master = ctx.createGain();
   master.gain.value = 1;
 
   source.connect(broadcastGain);
   broadcastGain.connect(master);
-  cancellationSum.connect(master);
+  cancellationSum.connect(sharedDelay);
+  sharedDelay.connect(inverter);
+  inverter.connect(master);
   master.connect(ctx.destination);
 
   return {
@@ -69,6 +91,8 @@ export function buildGraph(video: HTMLVideoElement): MixerGraph {
     master,
     broadcastGain,
     cancellationSum,
+    sharedDelay,
+    inverter,
     source,
     offsetMs: 0,
     tracks: new Map(),
@@ -92,22 +116,18 @@ export function addTrack(graph: MixerGraph, slug: string): GainNode {
   entry.connect(userGain);
   userGain.connect(graph.master);
 
-  const delay = graph.ctx.createDelay(MAX_OFFSET_SECONDS);
-  delay.delayTime.value = graph.offsetMs / 1000;
-  const inverter = graph.ctx.createGain();
-  inverter.gain.value = -1;
-  entry.connect(delay);
-  delay.connect(inverter);
-  inverter.connect(graph.cancellationSum);
+  // Cancellation tap: raw, pre-gain, so muting never weakens cancellation.
+  // The shared delay and inverter live downstream of cancellationSum.
+  entry.connect(graph.cancellationSum);
 
-  graph.tracks.set(slug, { entry, userGain, delay, inverter });
+  graph.tracks.set(slug, { entry, userGain });
   return entry;
 }
 
 export function removeTrack(graph: MixerGraph, slug: string): void {
   const t = graph.tracks.get(slug);
   if (!t) return;
-  for (const n of [t.entry, t.userGain, t.delay, t.inverter]) {
+  for (const n of [t.entry, t.userGain]) {
     try { n.disconnect(); } catch { /* already disconnected */ }
   }
   graph.tracks.delete(slug);
@@ -127,12 +147,12 @@ export function setBroadcastGain(graph: MixerGraph, value: number): void {
   graph.broadcastGain.gain.value = clamp01(value);
 }
 
+export const MAX_OFFSET_MS = MAX_OFFSET_SECONDS * 1000;
+
 export function setOffsetMs(graph: MixerGraph, ms: number): void {
-  const clamped = Math.max(0, Math.min(MAX_OFFSET_SECONDS * 1000, ms));
+  const clamped = Number.isFinite(ms) ? Math.max(0, Math.min(MAX_OFFSET_MS, ms)) : 0;
   graph.offsetMs = clamped;
-  for (const t of graph.tracks.values()) {
-    t.delay.delayTime.value = clamped / 1000;
-  }
+  graph.sharedDelay.delayTime.value = clamped / 1000;
 }
 
 export function destroy(graph: MixerGraph): void {

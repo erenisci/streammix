@@ -19,7 +19,24 @@ onward.
   Free VM plus a DuckDNS subdomain. The HMAC secret is mounted at runtime and
   gitignored, never baked into the image.
 
+### Changed
+
+- **The cancellation graph now uses one shared delay instead of one per track.**
+  All tracks mix into the same broadcast and therefore share its latency, which
+  the protocol already assumed; summing before delaying is equivalent and costs
+  one delay buffer rather than eight.
+
 ### Fixed
+
+- **Publisher no longer exits when the relay drops.** It reconnects with backoff
+  and re-announces HELLO + TRACK_LIST on every reconnect (the relay treats each
+  connection as a fresh publisher, so without that a reconnect leaves viewers
+  with no track list). Also fixes a use-after-free on the stale `wsi`, and a
+  service loop that could sleep forever while disconnected.
+- **Cancellation could never align on a real stream.** The side-channel delay was
+  capped at 2s while Twitch/Kick run 3–30s behind, so no offset setting could
+  line the two up. Ceiling raised to 30s and surfaced in the mixer UI, which was
+  likewise capped at 2000ms.
 
 - **Publisher-auth rate limiter could be bypassed behind a reverse proxy.** The
   relay identifies callers by the leftmost `X-Forwarded-For` entry, but Caddy

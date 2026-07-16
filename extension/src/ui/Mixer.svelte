@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { TrackInfo } from "@streammix/shared";
+  import { MAX_OFFSET_MS } from "../audio/graph.js";
   import { categoryIcon, categoryLabel } from "./categoryDisplay.js";
 
   export let tracks: TrackInfo[] = [];
@@ -81,18 +82,18 @@
     <div class="settings">
       <label class="row">
         <span class="track-icon">⏱</span>
-        <span class="label">Sync offset (ms)</span>
+        <span class="label">Sync offset</span>
         <input
           type="range"
           min="0"
-          max="2000"
+          max={MAX_OFFSET_MS}
           step="10"
           value={offsetMs}
           on:input={handleOffsetInput}
         />
-        <span class="value">{offsetMs}</span>
+        <span class="value">{(offsetMs / 1000).toFixed(2)}s</span>
       </label>
-      <p class="hint">Side-channels are delayed by this much before cancellation. Raise it if the streamer's audio still leaks through.</p>
+      <p class="hint">How long the side-channels are held back before cancellation, to line them up with the broadcast. Twitch and Kick typically run seconds behind, so expect a large value — around 3–5s on low latency, 10–20s otherwise.</p>
     </div>
   {/if}
 

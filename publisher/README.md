@@ -42,7 +42,7 @@ Then point the publisher at one or more processes:
 - `<preset>:system` — captures the default-output system loopback (full audio mix)
 - `custom:<Label>|<exe>` — free-form label; slug is auto-derived
 
-Maximum 8 tracks per publisher (ADR-001).
+Maximum 8 tracks per publisher.
 
 ## What it does
 
@@ -58,7 +58,7 @@ A single WebSocket connection carries all tracks multiplexed by `track_id`. The 
 
 - **Fingerprints** (perceptual hashes for sync) — not generated yet; the extension uses a fallback delay until they land
 - **Stereo only** — Opus runs at 48 kHz / 2ch (HELLO declares this)
-- **Reconnect** — on connection drop, the publisher exits; supervisor scripts should restart it (proper auto-reconnect comes later)
+- **Reconnect** — automatic, with 500ms→15s backoff; HELLO + TRACK_LIST are re-announced on every reconnect, and audio queued during the outage is dropped rather than sent stale
 - **Windows only** — macOS (CoreAudio) and Linux (PipeWire/PulseAudio) ports are in the roadmap
 
 ## Verifying

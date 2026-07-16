@@ -53,7 +53,7 @@ docker compose exec relay /usr/local/bin/relay token \
 | `--relay`   | Relay WebSocket URL (`wss://...` in production, `ws://` local) |
 | `--channel` | `twitch:<name>` or `kick:<name>` — must match your stream      |
 | `--token`   | The token from step 2                                          |
-| `--track`   | One per audio source, repeatable (max **8**, see ADR-001)      |
+| `--track`   | One per audio source, repeatable — **8 tracks maximum**        |
 | `--bitrate` | Opus kbps per track, default `48`, range `16`–`128`            |
 
 ### Track spec syntax
@@ -110,14 +110,14 @@ You can also point `tools/mock-subscriber` at the channel and watch the `AudioOp
 - The exe name must match a **running** process (`Spotify.exe`, not `Spotify`).
 - That process must actually be playing audio — a silent app produces no packets.
 
-**Publisher stops when the connection drops**
+**Relay restarted / network blipped**
 
-- Known limitation: there is no auto-reconnect yet, the process exits. Wrap it in a supervisor/restart script.
+- The publisher reconnects on its own, with backoff, and re-announces its tracks. The status line shows `DOWN` while it retries and `reconnects=N` once it is back. Audio buffered during the outage is dropped rather than delivered late.
 
 **Cancellation is poor, music still audible**
 
 - The track's source must be clean — no extra effects on the way to the broadcast.
-- Nudge the offset slider in the mixer. Automatic fingerprint sync is not wired up yet, so the delay is currently manual.
+- The viewer's sync offset must match the broadcast latency, which is **seconds** (3–30s), and it is set by hand today. Getting close enough for real cancellation is currently hard-to-impossible — automatic sync is designed but not built. Treat cancellation as experimental; the per-track sliders themselves work regardless.
 
 ## Performance
 
@@ -135,6 +135,5 @@ The publisher does not touch your broadcast — it only adds this extra upload.
 ## Current limitations
 
 - **Windows only** — macOS (CoreAudio) and Linux (PipeWire) are roadmap items
-- **No auto-reconnect** — the publisher exits if the relay drops
-- **No fingerprints yet** — the viewer's sync offset is a manual slider for now
+- **No fingerprints yet** — the viewer's sync offset is a manual slider, and cancellation quality suffers for it
 - **Stereo 48 kHz Opus** only
