@@ -28,11 +28,17 @@ Google Cloud `e2-micro` always-free VM works too. Any VPS with Docker is fine.
 3. **Ports 80 and 443 open.** On Oracle Cloud this is two steps — most people miss
    the second:
    - VCN → Security List → add ingress rules for TCP 80 and 443 from `0.0.0.0/0`
-   - On the VM itself, Oracle images ship with iptables closed:
+   - On the VM itself, Oracle images ship with iptables closed. The rules must be
+     inserted **before** the catch-all `REJECT`, whose position varies by image —
+     the widely copy-pasted `-I INPUT 6` silently lands *after* the REJECT on a
+     stock Ubuntu 22.04 image (where REJECT sits at 5), so the ports look open but
+     are not. Compute the position instead:
      ```bash
-     sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT
-     sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
+     R=$(sudo iptables -L INPUT --line-numbers | awk '/REJECT/{print $1; exit}')
+     sudo iptables -I INPUT $R -m state --state NEW -p tcp --dport 443 -j ACCEPT
+     sudo iptables -I INPUT $R -m state --state NEW -p tcp --dport 80 -j ACCEPT
      sudo netfilter-persistent save
+     sudo iptables -L INPUT -n --line-numbers   # 80 and 443 must precede REJECT
      ```
 
 ## First run
@@ -59,7 +65,13 @@ $EDITOR config.yaml
 #   - tls.cert / tls.key: leave EMPTY — Caddy terminates TLS, the relay speaks
 #     plain HTTP on the internal Docker network
 
-# 4. Launch
+# 4. The relay container runs as distroless `nonroot` (uid 65532), so it must be
+#    able to read the mounted config. A default-umask 644 file works as is; if you
+#    tighten it, hand it to the container user or the relay crash-loops with
+#    "config: read config: ... permission denied".
+sudo chown 65532:65532 config.yaml && sudo chmod 600 config.yaml
+
+# 5. Launch
 docker compose up -d
 ```
 
