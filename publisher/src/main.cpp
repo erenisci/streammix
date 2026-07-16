@@ -113,41 +113,37 @@ int main(int argc, char** argv) {
 
     // ---------------- WebSocket ----------------
     WebSocketClient ws;
+
+    // The relay treats every connection as a fresh publisher, so the session has
+    // to be re-announced after each reconnect — not just once at startup. The
+    // client clears the queue before firing this, so these two always lead.
+    ws.SetOnConnected([&cfg, &ws]() {
+        Frame hello;
+        hello.type = MessageType::Hello;
+        hello.track = streammix::proto::kControlTrack;
+        hello.seq = 0;
+        hello.timestamp_ms = NowMs();
+        hello.payload = BuildHelloPayload();
+        ws.Enqueue(EncodeFrameOrLog(hello, "HELLO"));
+
+        Frame tl;
+        tl.type = MessageType::TrackList;
+        tl.track = streammix::proto::kControlTrack;
+        tl.seq = 1;
+        tl.timestamp_ms = NowMs();
+        tl.payload = BuildTrackListPayload(cfg);
+        ws.Enqueue(EncodeFrameOrLog(tl, "TRACK_LIST"));
+
+        std::fprintf(stderr, "[publisher] sent HELLO + TRACK_LIST (%zu track%s)\n",
+                     cfg.tracks.size(), cfg.tracks.size() == 1 ? "" : "s");
+    });
+
     std::string path = "/publish?channel=" + UrlEncode(cfg.channel) +
                        "&token=" + UrlEncode(cfg.token);
     if (auto e = ws.Start(cfg.relay_url, path); !e.empty()) {
         std::fprintf(stderr, "[publisher] ws start failed: %s\n", e.c_str());
         return 1;
     }
-
-    // Give the connection a brief moment to upgrade before we start sending.
-    for (int i = 0; i < 50 && !ws.Connected(); ++i) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(20));
-    }
-    // (Connected() is set at construct time true until error — actual handshake
-    // success is signalled by LWS_CALLBACK_CLIENT_ESTABLISHED which prints
-    // "[ws] connected".)
-
-    // ---------------- HELLO ----------------
-    Frame hello;
-    hello.type = MessageType::Hello;
-    hello.track = streammix::proto::kControlTrack;
-    hello.seq = 0;
-    hello.timestamp_ms = NowMs();
-    hello.payload = BuildHelloPayload();
-    ws.Enqueue(EncodeFrameOrLog(hello, "HELLO"));
-
-    // ---------------- TRACK_LIST ----------------
-    Frame tl;
-    tl.type = MessageType::TrackList;
-    tl.track = streammix::proto::kControlTrack;
-    tl.seq = 1;
-    tl.timestamp_ms = NowMs();
-    tl.payload = BuildTrackListPayload(cfg);
-    ws.Enqueue(EncodeFrameOrLog(tl, "TRACK_LIST"));
-
-    std::fprintf(stderr, "[publisher] sent HELLO + TRACK_LIST (%zu track%s)\n",
-                 cfg.tracks.size(), cfg.tracks.size() == 1 ? "" : "s");
 
     // ---------------- Per-track pipelines ----------------
     std::vector<std::shared_ptr<TrackPipeline>> pipelines;
@@ -212,10 +208,12 @@ int main(int argc, char** argv) {
         auto now = std::chrono::steady_clock::now();
         if (now - last_report >= std::chrono::seconds(5)) {
             std::fprintf(stderr,
-                         "[publisher] sent=%llu queue=%llu dropped=%llu\n",
+                         "[publisher] %s sent=%llu queue=%llu dropped=%llu reconnects=%llu\n",
+                         ws.Connected() ? "up" : "DOWN",
                          static_cast<unsigned long long>(ws.SentPackets()),
                          static_cast<unsigned long long>(ws.QueueDepth()),
-                         static_cast<unsigned long long>(ws.Dropped()));
+                         static_cast<unsigned long long>(ws.Dropped()),
+                         static_cast<unsigned long long>(ws.Reconnects()));
             last_report = now;
         }
     }

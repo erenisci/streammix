@@ -2,8 +2,11 @@
 
 #include <libwebsockets.h>
 
+#include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cstring>
+#include <iterator>
 
 namespace streammix::publisher {
 
@@ -38,6 +41,7 @@ int LwsCallback(struct lws* wsi, enum lws_callback_reasons reason,
     switch (reason) {
         case LWS_CALLBACK_CLIENT_ESTABLISHED:
             std::fprintf(stderr, "[ws] connected\n");
+            self->OnEstablished();
             lws_callback_on_writable(wsi);
             return 0;
 
@@ -113,6 +117,48 @@ void WebSocketClient::Enqueue(std::vector<std::uint8_t> packet) {
 
 void* WebSocketClient::WsiPtr() { return impl_->wsi; }
 
+void WebSocketClient::OnEstablished() {
+    connected_.store(true);
+    connecting_.store(false);
+    // Drop anything the capture threads queued while we were down: those frames
+    // carry stale timestamps, and the relay needs HELLO + TRACK_LIST to lead.
+    {
+        std::lock_guard<std::mutex> lock(queue_mu_);
+        queue_.clear();
+    }
+    if (on_connected_) on_connected_();
+}
+
+void WebSocketClient::MarkDisconnected() {
+    // lws frees the wsi around these callbacks; keeping the pointer would leave
+    // Enqueue's wake-up path calling lws_callback_on_writable on freed memory.
+    impl_->wsi = nullptr;
+    connecting_.store(false);
+    if (connected_.exchange(false)) {
+        reconnects_.fetch_add(1);
+    }
+}
+
+bool WebSocketClient::TryConnect() {
+    lws_client_connect_info ccinfo{};
+    ccinfo.context = impl_->ctx;
+    ccinfo.address = impl_->host.c_str();
+    ccinfo.port = impl_->port;
+    ccinfo.path = impl_->path.c_str();
+    ccinfo.host = impl_->host.c_str();
+    ccinfo.origin = impl_->host.c_str();
+    ccinfo.protocol = "streammix.v1";
+    if (impl_->tls) ccinfo.ssl_connection = LCCSCF_USE_SSL;
+
+    connecting_.store(true);
+    impl_->wsi = lws_client_connect_via_info(&ccinfo);
+    if (!impl_->wsi) {
+        connecting_.store(false);
+        return false;
+    }
+    return true;
+}
+
 std::string WebSocketClient::Start(const std::string& url, const std::string& path) {
     if (url.rfind("wss://", 0) == 0) {
         impl_->tls = true;
@@ -154,28 +200,42 @@ std::string WebSocketClient::Start(const std::string& url, const std::string& pa
     impl_->ctx = lws_create_context(&info);
     if (!impl_->ctx) return "lws_create_context failed";
 
-    lws_client_connect_info ccinfo{};
-    ccinfo.context = impl_->ctx;
-    ccinfo.address = impl_->host.c_str();
-    ccinfo.port = impl_->port;
-    ccinfo.path = impl_->path.c_str();
-    ccinfo.host = impl_->host.c_str();
-    ccinfo.origin = impl_->host.c_str();
-    ccinfo.protocol = "streammix.v1";
-    if (impl_->tls) ccinfo.ssl_connection = LCCSCF_USE_SSL;
-
-    impl_->wsi = lws_client_connect_via_info(&ccinfo);
-    if (!impl_->wsi) {
-        lws_context_destroy(impl_->ctx);
-        impl_->ctx = nullptr;
-        return "lws_client_connect_via_info failed";
-    }
-
-    connected_.store(true);
+    TryConnect();  // a failure here is not fatal; the loop below retries
 
     thread_ = std::thread([this]() {
+        // Mirrors the extension's subscriber backoff (relay/client.ts).
+        static constexpr int kBackoffMs[] = {500, 1000, 2000, 5000, 15000};
+        constexpr int kBackoffCount = static_cast<int>(std::size(kBackoffMs));
+        int attempt = 0;
+        auto next_attempt = std::chrono::steady_clock::now();
+
         while (!stop_requested_.load()) {
             lws_service(impl_->ctx, 50);
+            if (stop_requested_.load()) break;
+
+            if (connected_.load()) {
+                attempt = 0;
+                continue;
+            }
+            if (connecting_.load()) continue;  // handshake in flight
+
+            auto now = std::chrono::steady_clock::now();
+            if (now < next_attempt) continue;
+
+            std::fprintf(stderr, "[ws] reconnecting (attempt %d)\n", attempt + 1);
+            TryConnect();
+            next_attempt = now + std::chrono::milliseconds(
+                                     kBackoffMs[std::min(attempt, kBackoffCount - 1)]);
+            ++attempt;
+        }
+    });
+
+    watchdog_ = std::thread([this]() {
+        while (!stop_requested_.load()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            if (!connected_.load() && impl_->ctx) {
+                lws_cancel_service(impl_->ctx);  // the only thread-safe lws call
+            }
         }
     });
 
@@ -184,6 +244,8 @@ std::string WebSocketClient::Start(const std::string& url, const std::string& pa
 
 void WebSocketClient::Stop() {
     stop_requested_.store(true);
+    if (impl_->ctx) lws_cancel_service(impl_->ctx);  // unblock a sleeping service loop
+    if (watchdog_.joinable()) watchdog_.join();
     if (thread_.joinable()) thread_.join();
     if (impl_->ctx) {
         lws_context_destroy(impl_->ctx);
