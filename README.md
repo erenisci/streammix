@@ -1,5 +1,7 @@
 # StreamMix
 
+[![CI](https://github.com/erenisci/streammix/actions/workflows/ci.yml/badge.svg)](https://github.com/erenisci/streammix/actions/workflows/ci.yml)
+
 > An open-source system that lets Twitch and Kick viewers independently control each audio source in a stream — **mic, game, music, notifications, browser, voice chat** — turning down what they don't want, keeping what they do.
 
 ---
@@ -48,6 +50,7 @@ For viewers **without** the extension nothing changes — the broadcast plays as
 - **Audio protocol:** [docs/AUDIO_PROTOCOL.md](docs/AUDIO_PROTOCOL.md)
 - **Channel categories:** [docs/CHANNEL_CATEGORIES.md](docs/CHANNEL_CATEGORIES.md)
 - **Contributing:** [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)
+- **Changelog:** [CHANGELOG.md](CHANGELOG.md)
 
 ## Status
 

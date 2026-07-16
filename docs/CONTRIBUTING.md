@@ -46,6 +46,9 @@ cmake --build build --config Release
 ctest --test-dir build -C Release --output-on-failure
 ```
 
+CI runs all of the above on every push and pull request via
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) — keep it green.
+
 ## Building the publisher (Windows)
 
 The standalone publisher captures per-process audio via WASAPI and publishes to the relay.
