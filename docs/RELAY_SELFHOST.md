@@ -1,6 +1,8 @@
 # Relay Self-Host
 
-Guide for running your own relay instead of the official `relay.streammix.dev`. Reasons to self-host: privacy, control, or bandwidth.
+Guide for running your own relay. **There is no official hosted relay yet** — until one exists, self-hosting is the only way to run StreamMix, and both the publisher and every viewer must point at the same URL. Other reasons to self-host: privacy, control, bandwidth.
+
+For a turnkey stack (Docker Compose + automatic TLS, free to run), see [`deploy/`](../deploy/README.md).
 
 ## Requirements
 
@@ -92,7 +94,7 @@ sudo systemctl enable --now streammix-relay
 Streamer (the publisher CLI — see [`publisher/README.md`](../publisher/README.md)):
 
 ```powershell
-streammix_publisher.exe --relay-url wss://your-server.com --channel twitch:your_channel --token <token> ...
+streammix_publisher.exe --relay wss://your-server.com --channel twitch:your_channel --token <token> ...
 ```
 
 Viewer (in the extension): Settings → "Custom Relay URL" → `wss://your-server.com`

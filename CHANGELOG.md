@@ -34,6 +34,21 @@ onward.
   `deploy/`.
 - **`docs/RELAY_SELFHOST.md` config sample used `max_packet_bytes`**; the real
   field is `max_frame_bytes`.
+- **`docs/STREAMER_SETUP.md` documented a product that does not exist.** It was
+  written entirely around the OBS plugin — which is deferred to v0.2 — and never
+  mentioned the publisher CLI that actually ships the MVP streamer path. Rewritten
+  around the publisher, including the fact that no OBS reconfiguration is needed.
+- **`--relay-url` is not a flag.** The publisher takes `--relay`. The docs invented
+  the longer name.
+- **Docs presented `relay.streammix.dev` as an existing hosted relay.** It does not
+  exist; `STREAMER_SETUP` even told streamers to leave the URL blank to use it.
+  Self-hosting is currently the only option, and that is now stated plainly.
+- **`docs/VIEWER_SETUP.md` advertised three unimplemented features** as if they
+  worked: automatic fingerprint sync ("auto-tune usually finds it"), the
+  "Permanently Off" per-track unsubscribe (`permanentlyOff` exists in the prefs
+  store but is never read and no `SUB_TRACKS` frame is ever sent), and a
+  user-facing buffer setting.
+- **iptables/ownership footguns** in the deploy runbook — see the deploy commit.
 
 ### Notes
 

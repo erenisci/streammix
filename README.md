@@ -12,9 +12,10 @@ In a livestream every sound comes mixed into a single audio track. If you don't 
 
 ## The Solution
 
-A two-part system:
+A three-part system:
 
-- **OBS plugin** — Runs on the streamer's machine. The streamer defines up to 8 named channels (Mic, Game, Music, Notifications, ...) and the plugin publishes each as a clean PCM side-channel. The main broadcast is unchanged.
+- **Publisher** — Runs on the streamer's machine. Captures up to 8 named sources (Mic, Game, Music, Notifications, ...) straight from the processes that produce them and publishes each as a clean Opus side-channel. The main broadcast is untouched, and no OBS reconfiguration is needed.
+- **Relay** — A stateless WebSocket fan-out: one publisher in, N viewers out, bytes forwarded opaquely.
 - **Browser extension** — Runs in the viewer's browser. Uses the side-channels to **actively cancel** the corresponding sounds out of the main broadcast (phase cancellation), then exposes a separate slider per channel. Preferences are remembered both globally (by category) and per-streamer.
 
 For viewers **without** the extension nothing changes — the broadcast plays as a single mixed stream, the way it always did.
@@ -23,30 +24,31 @@ For viewers **without** the extension nothing changes — the broadcast plays as
 
 ```
 [Streamer PC]                  [Relay]                  [Viewer Browser]
-  OBS                                                    Twitch/Kick player
-   ├─ Normal broadcast → Twitch/Kick ─────────────────────► (mixed audio)
-   └─ OBS Plugin ──► WebSocket ──► fan-out ──► Extension ──► Web Audio:
-        (N named                                              ├─ Demux tracks
-         channels,                                             ├─ Σ cancel
-         multiplexed)                                          └─ Per-channel mixer
+  OBS ─ Normal broadcast → Twitch/Kick ──────────────────► (mixed audio)
+                                                          Twitch/Kick player
+  Publisher ──────► WebSocket ──► fan-out ──► Extension ──► Web Audio:
+   (per-process                                              ├─ Demux tracks
+    capture, N named                                         ├─ Σ cancel
+    channels, multiplexed)                                   └─ Per-channel mixer
 ```
 
 ## Components
 
-| Folder                     | Purpose                                                              | Language   |
-| -------------------------- | -------------------------------------------------------------------- | ---------- |
-| [publisher/](publisher/)   | Standalone Windows CLI — captures per-process audio (WASAPI) and publishes to the relay | C++        |
-| [obs-plugin/](obs-plugin/) | OBS Studio plugin — packaged streamer experience (v0.2)              | C++        |
-| [relay/](relay/)           | WebSocket fan-out server — bridges streamer to viewers               | Go         |
-| [extension/](extension/)   | Chromium + Firefox extension — mixer UI + cancellation               | TypeScript |
-| [shared/](shared/)         | Shared audio packet format and protocol definitions                  | -          |
-| [docs/](docs/)             | All documentation                                                    | Markdown   |
+| Folder                     | Purpose                                                                                                          | Language   |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------- |
+| [publisher/](publisher/)   | **Streamer path (MVP).** Standalone Windows CLI — captures per-process audio (WASAPI) and publishes to the relay | C++        |
+| [obs-plugin/](obs-plugin/) | OBS Studio plugin — packaged streamer experience (v0.2)                                                          | C++        |
+| [relay/](relay/)           | WebSocket fan-out server — bridges streamer to viewers                                                           | Go         |
+| [extension/](extension/)   | Chromium + Firefox extension — mixer UI + cancellation                                                           | TypeScript |
+| [shared/](shared/)         | Shared audio packet format and protocol definitions                                                              | -          |
+| [deploy/](deploy/)         | Turnkey relay deploy — Docker Compose + Caddy with automatic TLS                                                 | YAML       |
+| [docs/](docs/)             | All documentation                                                                                                | Markdown   |
 
 ## Quick Links
 
 - **Streamer setup:** [docs/STREAMER_SETUP.md](docs/STREAMER_SETUP.md)
 - **Viewer setup:** [docs/VIEWER_SETUP.md](docs/VIEWER_SETUP.md)
-- **Relay self-host:** [docs/RELAY_SELFHOST.md](docs/RELAY_SELFHOST.md)
+- **Run a relay:** [deploy/](deploy/README.md) · [docs/RELAY_SELFHOST.md](docs/RELAY_SELFHOST.md)
 - **Audio protocol:** [docs/AUDIO_PROTOCOL.md](docs/AUDIO_PROTOCOL.md)
 - **Channel categories:** [docs/CHANNEL_CATEGORIES.md](docs/CHANNEL_CATEGORIES.md)
 - **Contributing:** [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)
@@ -54,7 +56,15 @@ For viewers **without** the extension nothing changes — the broadcast plays as
 
 ## Status
 
-> Pre-release. The streamer-side publisher (Windows), the relay server, the wire-format codec, and the browser extension (including Opus decode + active cancellation) are all code-complete. End-to-end live testing on real streams and a hosted relay deploy are the next steps before v0.1.
+**Pre-release — not yet usable without building it yourself.** The wire-format codec, the relay, the Windows publisher, and the extension (Opus decode + active cancellation + mixer UI) are all code-complete, and the relay deploy stack is verified end to end against a live host. What is still missing for v0.1:
+
+- **No official hosted relay.** You must run your own ([deploy/](deploy/README.md)); the publisher and every viewer must point at the same URL.
+- **No released binaries.** No signed publisher installer, no Chrome Web Store / AMO listing — build from source.
+- **End-to-end testing on real streams is not finished.**
+- **Sync is manual.** Fingerprint-based auto-sync isn't implemented; viewers nudge an offset slider.
+- **Publisher is Windows-only** and has no auto-reconnect.
+
+The OBS plugin ([obs-plugin/](obs-plugin/)) is deferred to v0.2 — the publisher CLI covers the MVP streamer path.
 
 ## Supported Platforms
 

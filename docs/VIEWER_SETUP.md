@@ -2,12 +2,16 @@
 
 ## Installation
 
-> **Not yet released.**
+> **Not yet released.** No store listing exists yet — build from source (`cd extension && npm install && npm run build`) and load `extension/dist` as an unpacked extension.
 
 When released:
 
 - **Chrome / Edge / Brave / Opera:** Chrome Web Store — "StreamMix"
 - **Firefox:** Mozilla AMO — "StreamMix"
+
+## Point it at a relay
+
+**There is no official hosted relay yet.** Until there is, open the extension popup and set the **custom relay URL** to the same `wss://...` host the streamer publishes to — otherwise the mixer will never receive a channel list. See [RELAY_SELFHOST.md](RELAY_SELFHOST.md).
 
 ## Usage
 
@@ -60,7 +64,7 @@ Example scenario:
 - Streamer B (3 channels: mic, game, music): opens with 55, 10, 40 automatically
 - Streamer C (4 channels: mic, game, music, notifications): mic, game, music are again 55, 10, 40; notifications uses your global default (if you've set one)
 
-## When the Streamer Doesn't Have the Plugin
+## When the Streamer Isn't Publishing
 
 The channel list comes back empty. You just get the classic single mute button — same as before extension installation.
 
@@ -73,12 +77,12 @@ StreamMix doesn't play music for you — use your favorite music app (Spotify, Y
 **Cancellation isn't perfectly clean** — if a sound is still faintly audible:
 
 1. Mixer panel → ⚙ Settings
-2. Drag the **Manual Offset** slider within ±200 ms
-3. Stop at the cleanest point (auto-tune usually finds it)
+2. Drag the **Manual Offset** slider
+3. Stop at the cleanest point
 
-**Only keep specific tracks active** (bandwidth saving):
+The stream reaches you later than the side-channel does, and that delay is what the offset compensates for. It is **manual for now** — automatic fingerprint-based sync is not implemented yet, so expect to nudge this slider once per streamer.
 
-- Mark tracks you constantly disable as "Permanently Off" → that track is never pulled from the relay.
+> **Not yet available:** marking a track "Permanently Off" so it is never pulled from the relay (a bandwidth saving) is designed but not implemented — turning a slider to 0 still downloads the track.
 
 ## Privacy
 
@@ -92,9 +96,9 @@ StreamMix doesn't play music for you — use your favorite music app (Spotify, Y
 - Refresh the page (F5)
 - Make sure the extension has permission on this page (puzzle icon → permissions)
 
-**Channel list is empty ("Streamer's plugin not running")**
+**Channel list is empty**
 
-- The streamer hasn't installed the plugin. Without it the extension can only offer a classic mute.
+- The streamer isn't running the publisher, or is publishing to a different relay than the one set in your popup. Without a publisher the extension can only offer a classic mute.
 
 **Some channels show up but certain sounds still come from the main broadcast**
 
@@ -103,4 +107,4 @@ StreamMix doesn't play music for you — use your favorite music app (Spotify, Y
 
 **Audio stutters**
 
-- Mixer → ⚙ Settings → bump "Buffer" from 200 → 500 ms.
+- The scheduler keeps a small jitter buffer; there is no user-facing buffer setting yet. Stutter usually means the side-channel is losing packets — check the streamer's upload and the relay's `relay_bytes_relayed_total` metric.

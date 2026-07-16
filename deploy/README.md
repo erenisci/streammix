@@ -30,7 +30,7 @@ Google Cloud `e2-micro` always-free VM works too. Any VPS with Docker is fine.
    - VCN → Security List → add ingress rules for TCP 80 and 443 from `0.0.0.0/0`
    - On the VM itself, Oracle images ship with iptables closed. The rules must be
      inserted **before** the catch-all `REJECT`, whose position varies by image —
-     the widely copy-pasted `-I INPUT 6` silently lands *after* the REJECT on a
+     the widely copy-pasted `-I INPUT 6` silently lands _after_ the REJECT on a
      stock Ubuntu 22.04 image (where REJECT sits at 5), so the ports look open but
      are not. Compute the position instead:
      ```bash
@@ -100,7 +100,7 @@ error, `8760h` is one year.
 ## Point the clients at it
 
 - **Publisher (Windows):**
-  `streammix_publisher.exe --relay-url wss://your-name.duckdns.org --channel twitch:your_channel --token <token> ...`
+  `streammix_publisher.exe --relay wss://your-name.duckdns.org --channel twitch:your_channel --token <token> ...`
 - **Extension:** open the popup → custom relay URL → `wss://your-name.duckdns.org`
 
 ## Operations

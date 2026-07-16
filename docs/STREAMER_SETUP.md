@@ -1,130 +1,140 @@
 # Streamer Setup
 
-> Installing this plugin lets **viewers who have the extension** independently control the audio sources in your stream (mic, game, music, notifications, ...). For viewers without the extension, nothing about your broadcast changes.
+> Running the publisher lets **viewers who have the extension** independently control the audio sources in your stream (mic, game, music, notifications, ...). For viewers without the extension, nothing about your broadcast changes.
+
+The MVP streamer path is the **standalone publisher CLI** (`publisher/`). It captures each audio source straight from the process that produces it, so **your OBS setup needs no changes at all** — the publisher runs alongside OBS and never touches your broadcast.
+
+> The polished OBS dock (`obs-plugin/`) is planned for v0.2. Until then, use the CLI below.
 
 ## Requirements
 
-- OBS Studio 30.0 or newer
-- Windows 10/11, macOS 12+, or Linux (Ubuntu 22.04+)
-- A separate audio source per component in your stream (mic, game audio, Spotify, ...)
+- **Windows 10 build 20348+ or Windows 11** — the WASAPI process-loopback API is Windows-only
+- One separate application per audio component (game, Spotify, Discord, ...)
+- A relay to publish to — the [`deploy/`](../deploy/README.md) stack, or any host from [RELAY_SELFHOST.md](RELAY_SELFHOST.md)
 
-## Installation
+## 1. Get the publisher
 
-### 1. Download the plugin
+> **No signed installer yet.** Build from source for now:
 
-> **Not yet released.**
+```powershell
+vcpkg install opus:x64-windows libwebsockets:x64-windows
 
-After downloading:
+cd publisher
+cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+cmake --build build --config Release
+```
 
-- **Windows:** extract the `.zip` over `C:\Program Files\obs-studio\`
-- **macOS:** run the `.pkg`
-- **Linux:** install the `.deb` or `.rpm`
+Binary: `publisher/build/Release/streammix_publisher.exe`
 
-### 2. Open OBS and show the plugin dock
+## 2. Get a publisher token
 
-`View → Docks → StreamMix`
+Tokens are minted by the relay operator and are **scoped to one channel**. If you run the `deploy/` stack:
 
-### 3. Connect to a relay
+```bash
+docker compose exec relay /usr/local/bin/relay token \
+  --channel twitch:your_channel --ttl 8760h --config /etc/streammix/config.yaml
+```
 
-At the top of the dock:
+(`--ttl` is a Go duration — hours are the largest unit, so `8760h` is a year.)
 
-- **Relay URL:** Leave empty to use `wss://relay.streammix.dev`
-- **Channel:** Auto-filled to `twitch:<your_username>` or `kick:<your_username>`
-- **Token:** Streamer token obtained from the website
+## 3. Run it
 
-To host your own relay: [RELAY_SELFHOST.md](RELAY_SELFHOST.md)
+```powershell
+.\publisher\build\Release\streammix_publisher.exe `
+  --relay wss://your-relay.example.org `
+  --channel twitch:your_channel `
+  --token <TOKEN> `
+  --track music:Spotify.exe `
+  --track game:game.exe
+```
 
-### 4. Add Channels
+| Flag        | Meaning                                                       |
+| ----------- | ------------------------------------------------------------- |
+| `--relay`   | Relay WebSocket URL (`wss://...` in production, `ws://` local) |
+| `--channel` | `twitch:<name>` or `kick:<name>` — must match your stream      |
+| `--token`   | The token from step 2                                          |
+| `--track`   | One per audio source, repeatable (max **8**, see ADR-001)      |
+| `--bitrate` | Opus kbps per track, default `48`, range `16`–`128`            |
 
-In the plugin dock, click **"Add Channel"**. Each channel asks for:
+### Track spec syntax
 
-- **Category:** pick from the dropdown (Mic / Game / Music / Voice Chat / Notifications / Browser / Stream Alerts / TTS / **Custom**)
-- **Label:** the name shown to viewers (auto-filled, editable)
-- **Audio Source:** the matching OBS audio source
+- `<preset>:<exe>` — preset is one of `mic|game|music|voicechat|notifications|browser|alerts|tts`, matched to a running process by exe name (case-insensitive)
+- `<preset>:system` — captures the whole system output mix
+- `custom:<Label>|<exe>` — free-form label, slug auto-derived
 
-> **Important:** Each channel must be **only** the component it represents. If you pick a mixed source, cancellation breaks and the viewer's sliders won't respond correctly.
+> **Important:** each track must carry **only** the component it represents. Point a track at a mixed source and cancellation breaks — the viewer's slider won't do what it says.
 
-Maximum **8 channels**. Recommended: 3–5.
+### Typical setups
 
-### Typical Setup Examples
+**Minimal (2 tracks)** — the common case:
 
-**Minimal (3 channels):**
+| Track spec           | Why                      |
+| -------------------- | ------------------------ |
+| `music:Spotify.exe`  | Background music         |
+| `game:game.exe`      | Game audio               |
 
-| Category | OBS Source                            | Why              |
-| -------- | ------------------------------------- | ---------------- |
-| `mic`    | "Mic/Aux"                             | Your voice       |
-| `game`   | "Desktop Audio" (game origin)         | Game audio       |
-| `music`  | "Spotify" (Application Audio Capture) | Background music |
+**Fuller (4 tracks):**
 
-**Full (5 channels):**
+| Track spec               |
+| ------------------------ |
+| `game:game.exe`          |
+| `music:Spotify.exe`      |
+| `voicechat:Discord.exe`  |
+| `browser:chrome.exe`     |
 
-| Category    | OBS Source                          |
-| ----------- | ----------------------------------- |
-| `mic`       | Mic/Aux                             |
-| `game`      | Application Audio Capture: game.exe |
-| `music`     | Application Audio Capture: Spotify  |
-| `voicechat` | Application Audio Capture: Discord  |
-| `alerts`    | Browser Source: Streamlabs          |
+Your mic usually goes through OBS rather than a process of its own, so it is often left out until the OBS plugin lands.
 
-### 5. OBS Routing — Dual Output
+## 4. Point viewers at the relay
 
-Every audio source must go to two places:
-
-1. **Normal broadcast** (Track 1 — RTMP) → "extension-less" viewer experience
-2. **Plugin** → side-channel
-
-OBS does not do this automatically; you do:
-
-1. OBS → `File → Settings → Audio → Advanced Audio Properties`
-2. Each source must keep "Track 1" checked (goes to broadcast)
-3. The plugin handles its own capture (via OBS audio callback API) — no extra config needed
-
-A small indicator sits next to each channel in the plugin dock:
-
-- 🟢 OK — capture active, packets flowing
-- 🟡 Silent — source selected but no audio for 5s
-- 🔴 Error — capture failed
-
-### 6. Connect and Test
-
-Hit **"Connect"** at the top of the dock. The status should turn green: "Connected".
+If you are not using an official hosted relay, viewers must set the same relay URL: extension popup → custom relay URL → `wss://your-relay.example.org`.
 
 ## Verification
 
-1. Start your stream
-2. On a different device, open your channel in an extension-enabled browser
-3. Click the mixer icon next to the player — confirm the channel list arrives
-4. Drop a channel slider to 0 → that audio should drop (~15-20 dB), others continue
-5. "Solo" a channel → only that one should be audible
+1. Start the publisher — it prints `sent HELLO + TRACK_LIST (N tracks)` then a `sent=... queue=... dropped=...` line every 5s. `sent` climbing ≈ 50 packets/sec/track means audio is flowing.
+2. Start your stream.
+3. On another device, open your channel in an extension-enabled browser.
+4. Click the mixer icon next to the player — the track list should arrive.
+5. Drop a slider to 0 → that audio should drop away; the others keep playing.
+
+You can also point `tools/mock-subscriber` at the channel and watch the `AudioOpus` counters climb.
 
 ## Troubleshooting
 
-**Shows "Connected" but the viewer side doesn't see the channel list**
+**Publisher exits immediately with an auth error**
 
-- Make sure you added at least one channel
-- Channel name must match exactly, lowercase
+- The token is channel-scoped — it must match `--channel` exactly, lowercase.
+- Tokens expire. Mint a new one.
+
+**`sent` stays at 0 for a track**
+
+- The exe name must match a **running** process (`Spotify.exe`, not `Spotify`).
+- That process must actually be playing audio — a silent app produces no packets.
+
+**Publisher stops when the connection drops**
+
+- Known limitation: there is no auto-reconnect yet, the process exits. Wrap it in a supervisor/restart script.
 
 **Cancellation is poor, music still audible**
 
-- Verify the source for that channel has no extra effects (reverb, EQ)
-- Disable any OBS monitor delay (`Audio → Advanced Audio Properties → Sync Offset = 0`)
-- Check the "Sync Status" panel in the plugin dock — if fingerprint match score is below 80%, the source isn't clean
-
-**The plugin slows down OBS**
-
-- Reduce the number of channels
-- Lower Opus bitrate: dock → `Advanced → Bitrate` → `32 kbps`
-
-**Broadcast smoothness is degraded**
-
-- The plugin does not affect the broadcast — only adds extra upload via the side-channel
-- If your upload bandwidth is the bottleneck: reduce channels or lower the bitrate
+- The track's source must be clean — no extra effects on the way to the broadcast.
+- Nudge the offset slider in the mixer. Automatic fingerprint sync is not wired up yet, so the delay is currently manual.
 
 ## Performance
 
-| Setup      | CPU   | RAM    | Upload bandwidth |
-| ---------- | ----- | ------ | ---------------- |
-| 1 channel  | 1–2%  | ~25 MB | ~52 kbps         |
-| 3 channels | 2–4%  | ~40 MB | ~156 kbps        |
-| 5 channels | 3–6%  | ~60 MB | ~260 kbps        |
-| 8 channels | 5–10% | ~90 MB | ~416 kbps        |
+Per track: ~50 packets/sec, `--bitrate` kbps of upload (default 48), plus protocol overhead.
+
+| Tracks | Upload      |
+| ------ | ----------- |
+| 1      | ~52 kbps    |
+| 3      | ~156 kbps   |
+| 5      | ~260 kbps   |
+| 8      | ~416 kbps   |
+
+The publisher does not touch your broadcast — it only adds this extra upload.
+
+## Current limitations
+
+- **Windows only** — macOS (CoreAudio) and Linux (PipeWire) are roadmap items
+- **No auto-reconnect** — the publisher exits if the relay drops
+- **No fingerprints yet** — the viewer's sync offset is a manual slider for now
+- **Stereo 48 kHz Opus** only
