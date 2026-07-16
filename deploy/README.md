@@ -41,9 +41,9 @@ Google Cloud `e2-micro` always-free VM works too. Any VPS with Docker is fine.
 git clone https://github.com/erenisci/streammix.git
 cd streammix/deploy
 
-# 1. Point the deploy at your domain
-cp .env.example .env
-$EDITOR .env                     # set RELAY_DOMAIN=your-name.duckdns.org
+# 1. Point the deploy at your domain (one line — Caddy gets a cert for it, and
+#    this is the host clients reach as wss://<domain>)
+echo 'RELAY_DOMAIN=your-name.duckdns.org' > .env
 
 # 2. Build the image, then generate the HMAC secret (signs publisher tokens).
 #    Use plain `docker run` here, NOT `docker compose run`: the compose service
@@ -113,11 +113,10 @@ directly); `docker compose exec relay sh` will not.
 
 ## Files
 
-| File                 | Committed? | Purpose                                            |
-| -------------------- | ---------- | -------------------------------------------------- |
-| `docker-compose.yml` | yes        | relay + Caddy services                             |
-| `Caddyfile`          | yes        | reverse proxy + automatic HTTPS                    |
-| `.env.example`       | yes        | template for `RELAY_DOMAIN`                        |
-| `.env`               | no         | your domain                                        |
-| `config.yaml`        | **no**     | live relay config — **contains the HMAC secret**   |
-| `secret.txt`         | **no**     | generated secret                                   |
+| File                 | Committed? | Purpose                                          |
+| -------------------- | ---------- | ------------------------------------------------ |
+| `docker-compose.yml` | yes        | relay + Caddy services                           |
+| `Caddyfile`          | yes        | reverse proxy + automatic HTTPS                  |
+| `.env`               | **no**     | `RELAY_DOMAIN=...` — you create it in step 1     |
+| `config.yaml`        | **no**     | live relay config — **contains the HMAC secret** |
+| `secret.txt`         | **no**     | generated secret                                 |
